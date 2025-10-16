@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>H₂O Wizard Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+<style>
+  body {
+    font-family: 'Poppins', sans-serif;
+    background: #e7f4ff;
+    margin: 0;
+  }
+
+  header {
+    background: linear-gradient(90deg, #0077b6, #00b4d8);
+    color: white;
+    padding: 1rem;
+    text-align: center;
+    font-size: 1.8rem;
+    letter-spacing: 1px;
+  }
+
+  #subHeader {
+    text-align: center;
+    color: #004c6d;
+    font-size: 1.1rem;
+    margin-top: 0.5rem;
+    font-weight: 500;
+  }
+
+  #alertBox {
+    background: #ffebee;
+    color: #c62828;
+    padding: 1rem;
+    text-align: center;
+    display: none;
+    font-weight: 600;
+    border-bottom: 2px solid #c62828;
+  }
+
+  .dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .card {
+    background: white;
+    padding: 1rem;
+    border-radius: 14px;
+    text-align: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    transition: 0.2s;
+  }
+
+  .card:hover {
+    transform: translateY(-3px);
+  }
+
+  .card h2 {
+    margin: 0.3rem 0;
+    font-size: 1.8rem;
+  }
+
+  canvas {
+    background: white;
+    border-radius: 12px;
+    margin: 1rem;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  }
+
+  footer {
+    text-align: center;
+    padding: 0.5rem;
+    font-size: 0.9rem;
+    color: #444;
+  }
+</style>
+</head>
+<body>
+
+<header>💧 H₂O Wizard — Smart Water Quality Dashboard</header>
+<div id="subHeader">📍 Monitoring Al Qudra Lake, Dubai — Real-time Water Quality Insights</div>
+
+<div id="alertBox">⚠️ Alert: Unsafe water parameters detected!</div>
+
+<div class="dashboard">
+  <div class="card"><h3>pH Level</h3><h2 id="phValue">--</h2></div>
+  <div class="card"><h3>Temperature (°C)</h3><h2 id="tempValue">--</h2></div>
+  <div class="card"><h3>Turbidity (NTU)</h3><h2 id="turbValue">--</h2></div>
+  <div class="card"><h3>Dissolved Oxygen (mg/L)</h3><h2 id="doValue">--</h2></div>
+</div>
+
+<canvas id="chart"></canvas>
+
+<footer>© 2025 H₂O Wizard — Intelligent Water Monitoring | Monitoring Site: Al Qudra Lake, Dubai</footer>
+
+<script>
+  emailjs.init("YOUR_PUBLIC_KEY"); // from EmailJS dashboard
+
+  const phEl = document.getElementById("phValue");
+  const tempEl = document.getElementById("tempValue");
+  const turbEl = document.getElementById("turbValue");
+  const doEl = document.getElementById("doValue");
+  const alertBox = document.getElementById("alertBox");
+
+  const chartCtx = document.getElementById("chart");
+  const chart = new Chart(chartCtx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        { label: 'pH', data: [], borderColor: '#0077b6', fill: false },
+        { label: 'Temp °C', data: [], borderColor: '#ff9800', fill: false },
+        { label: 'Turbidity', data: [], borderColor: '#4caf50', fill: false },
+        { label: 'DO', data: [], borderColor: '#9c27b0', fill: false }
+      ]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        x: { title: { display: true, text: 'Time' }},
+        y: { title: { display: true, text: 'Value' }}
+      }
+    }
+  });
+
+  const safe = {
+    ph: [6.5, 8.5],
+    temperature: [0, 35],
+    turbidity: [0, 20],
+    dissolved_oxygen: [5, 14]
+  };
+
+  let lastAlertTime = 0;
+
+  async function fetchData() {
+    // 🌐 Replace this section with your real API data source later
+    const data = {
+      ph: (6 + Math.random() * 3).toFixed(2),
+      temperature: (20 + Math.random() * 10).toFixed(1),
+      turbidity: (5 + Math.random() * 10).toFixed(1),
+      dissolved_oxygen: (6 + Math.random() * 3).toFixed(1)
+    };
+    updateDashboard(data);
+  }
+
+  function updateDashboard(data) {
+    phEl.textContent = data.ph;
+    tempEl.textContent = data.temperature;
+    turbEl.textContent = data.turbidity;
+    doEl.textContent = data.dissolved_oxygen;
+
+    const unsafe =
+      data.ph < safe.ph[0] || data.ph > safe.ph[1] ||
+      data.temperature < safe.temperature[0] || data.temperature > safe.temperature[1] ||
+      data.turbidity > safe.turbidity[1] ||
+      data.dissolved_oxygen < safe.dissolved_oxygen[0];
+
+    alertBox.style.display = unsafe ? "block" : "none";
+
+    const now = Date.now();
+    if (unsafe && now - lastAlertTime > 5 * 60 * 1000) {
+      sendEmailAlert(data);
+      lastAlertTime = now;
+    }
+
+    const time = new Date().toLocaleTimeString();
+    chart.data.labels.push(time);
+    chart.data.datasets[0].data.push(data.ph);
+    chart.data.datasets[1].data.push(data.temperature);
+    chart.data.datasets[2].data.push(data.turbidity);
+    chart.data.datasets[3].data.push(data.dissolved_oxygen);
+    if (chart.data.labels.length > 15) {
+      chart.data.labels.shift();
+      chart.data.datasets.forEach(d => d.data.shift());
+    }
+    chart.update();
+  }
+
+  function sendEmailAlert(data) {
+    const params = {
+      ph: data.ph,
+      temperature: data.temperature,
+      turbidity: data.turbidity,
+      dissolved_oxygen: data.dissolved_oxygen,
+      message: `Unsafe water quality detected by H₂O Wizard at Al Qudra Lake, Dubai.`
+    };
+
+    emailjs.send("YOUR_SERVICE_ID", "YOUR_TEMPLATE_ID", params)
+      .then(() => console.log("✅ Email alert sent successfully"))
+      .catch(err => console.error("❌ Error sending email:", err));
+  }
+
+  setInterval(fetchData, 3000);
+</script>
+
+</body>
+</html>
